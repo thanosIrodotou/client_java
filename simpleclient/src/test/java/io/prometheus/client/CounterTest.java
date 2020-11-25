@@ -16,11 +16,11 @@ public class CounterTest {
   public void setUp() {
     registry = new CollectorRegistry();
     noLabels = Counter.build().name("nolabels").help("help").register(registry);
-    labels = Counter.build().name("labels").help("help").labelNames("l").register(registry);
+    labels = Counter.build().name("labels").unit("seconds").help("help").labelNames("l").register(registry);
   }
 
   private double getValue() {
-    return registry.getSampleValue("nolabels").doubleValue();
+    return registry.getSampleValue("nolabels_total").doubleValue();
   }
   
   @Test
@@ -50,7 +50,7 @@ public class CounterTest {
   }
   
   private Double getLabelsValue(String labelValue) {
-    return registry.getSampleValue("labels", new String[]{"l"}, new String[]{labelValue});
+    return registry.getSampleValue("labels_seconds_total", new String[]{"l"}, new String[]{labelValue});
   }
 
   @Test
@@ -66,6 +66,18 @@ public class CounterTest {
   }
 
   @Test
+  public void testTotalStrippedFromName() {
+    Counter c = Counter.build().name("foo_total").unit("seconds").help("h").create();
+    assertEquals("foo_seconds", c.fullname);
+
+    // This is not a good unit, but test it anyway.
+    c = Counter.build().name("foo_total").unit("total").help("h").create();
+    assertEquals("foo_total", c.fullname);
+    c = Counter.build().name("foo").unit("total").help("h").create();
+    assertEquals("foo_total", c.fullname);
+  }
+
+  @Test
   public void testCollect() {
     labels.labels("a").inc();
     List<Collector.MetricFamilySamples> mfs = labels.collect();
@@ -75,8 +87,8 @@ public class CounterTest {
     labelNames.add("l");
     ArrayList<String> labelValues = new ArrayList<String>();
     labelValues.add("a");
-    samples.add(new Collector.MetricFamilySamples.Sample("labels", labelNames, labelValues, 1.0));
-    Collector.MetricFamilySamples mfsFixture = new Collector.MetricFamilySamples("labels", Collector.Type.COUNTER, "help", samples);
+    samples.add(new Collector.MetricFamilySamples.Sample("labels_seconds_total", labelNames, labelValues, 1.0));
+    Collector.MetricFamilySamples mfsFixture = new Collector.MetricFamilySamples("labels_seconds", "seconds", Collector.Type.COUNTER, "help", samples);
 
     assertEquals(1, mfs.size());
     assertEquals(mfsFixture, mfs.get(0));
